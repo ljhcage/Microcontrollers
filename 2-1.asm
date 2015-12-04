@@ -3,15 +3,15 @@
         
         ORG   0100H		
 MAIN:   MOV   A,  #20H;
-		CJNE  A,#20,NEG;   ²»µÈÓÚ20×ªNEG
-NEG:    JNC   SQUR;    ´óÓÚ20×ªSQUR
-		CPL   A;	Ð¡ÓÚ20È¡·´
+	CJNE  A,#20,NEG;   ä¸ç­‰äºŽ20è½¬NEG
+NEG:    JNC   SQUR;    å¤§äºŽ20è½¬SQUR
+	CPL   A;	å°äºŽ20å–å
         SJMP  DONE;
-SQUR:   CJNE  A,#40,HALF;  ²»µÈÓÚ40×ª
-		MOV   B,A;
-		CLR C;
+SQUR:   CJNE  A,#40,HALF;  ä¸ç­‰äºŽ40è½¬
+	MOV   B,A;
+	CLR C;
         MUL   AB ;
-		SJMP DONE;
+	SJMP DONE;
 HALF:   JNC SQUR
         MOV B,#2;
         DIV AB;
