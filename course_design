@@ -1,0 +1,207 @@
+;*****************************************************************
+;Filename: 3.asm
+;Decription: LED light
+;Designed by: LJH
+;Date:		2014.11.13
+;*****************************************************************
+$include (C8051F310.inc)
+		ORG   0000H
+	    AJMP  MAIN;
+	    ORG   000BH
+	    AJMP  TI1;
+		ORG   0013H
+		AJMP  IN1
+		
+public  Init_Device
+
+INIT SEGMENT CODE
+    rseg INIT
+MAIN:   lcall  Init_Device
+        MOV   R1,#00h;寄存器以及端口赋初值
+		MOV   R2,#00h;
+		MOV   R0,#00H
+		CLR   P3.1
+		SETB  IT1
+        MOV   TMOD,#01H
+        SETB  EA;
+        SETB  ET0;
+        MOV   TH0,#0FDH;延时1s初值
+        MOV   TL0,#8FH;
+	    SETB  TR0
+HERE:   SJMP  $;等待中断
+        AJMP  MAIN
+;******************************
+;     定时器中断子程序
+;******************************
+TI1:    INC   R1
+		CJNE  R0,#00H,NNOE
+		AJMP  ONES;跳往模式1
+NNOE:   CJNE  R0,#01H,NFIV
+		SJMP  FIVES;跳往模式2
+NFIV:	AJMP  HALF;跳往模式3
+;******************************
+;     模式1，闪烁1Hz
+;******************************
+ONES:   MOV   A,R1
+		JB    ACC.0,DANO
+		ORL   P0,#0C0H;数码管1
+		MOV   P1,#60H
+		AJMP  PANO
+DANO:	ORL   P0,#0C0H;数码管3
+		ANL   P0,#7FH
+		MOV   P1,#60H
+PANO:	CJNE  R1,#64H,ASSIG;没到0.5S继续赋值等待
+        MOV   R1,#0
+	    INC   R2
+		CJNE  R2,#28H,ONEC;没到20s继续闪烁
+		LJMP  CHAFIV;达到20s切换模式
+ONEC:   CPL   P0.0
+	    LJMP  ASSIG
+CHAONE: MOV   R2,#00H;;计次寄存器清零并改变模式标志
+		MOV   R0,#00H
+		LCALL BEEP;响蜂鸣器
+		LJMP  ONES
+;******************************
+;        定时器赋值
+;******************************
+ASSIG:  MOV   TH0,#0FEH;延时1s初值
+        MOV   TL0,#0C8H	
+RE:	    RETI
+;******************************
+;      模式2，闪烁5Hz
+;******************************
+FIVES:	MOV   A,R1
+		JB    ACC.0,DANF
+		ORL   P0,#0C0H;数码管1
+		MOV   P1,#0DAH
+		AJMP  PANF
+DANF:	ORL   P0,#0C0H;数码管3
+		ANL   P0,#7FH
+		MOV   P1,#0B6H
+PANF:	CJNE  R1,#28H,ASSIG;没到0.1S继续赋值等待
+        MOV   R1,#0
+	    INC   R2
+		CJNE  R2,#64H,FIVC;没到20s继续闪烁
+		LJMP  CHAHAL;达到20s切换模式
+FIVC:	CPL   P0.0
+	    LJMP  ASSIG
+CHAFIV: MOV   R2,#00H;;计次寄存器清零并改变模式标志
+		MOV   R0,#01H
+		LCALL BEEP;响蜂鸣器
+		LJMP  FIVES
+;******************************
+;     模式3，闪烁0.5Hz
+;******************************
+HALF:	MOV   A,R1
+		JB    ACC.1,DANS
+		JB    ACC.0,DANSH
+		ANL   P0,#0BFH;数码管2
+		MOV   P1,#00H
+		AJMP  PANH
+DANSH:	ORL   P0,#0C0H;数码管3
+		ANL   P0,#7FH
+		MOV   P1,#0FDH
+		AJMP  PANH
+DANS:	JB    ACC.0,DANH
+		ANL   P0,#3FH;数码管1
+		ORL   P0,#0C0H
+		MOV   P1,#0F2H
+		AJMP  PANH
+DANH:	ANL   P0,#3FH;数码管4
+		MOV   P1,#0B6H
+PANH:	CJNE  R1,#0C8H,ASSIG;没到1S继续赋值等待
+        MOV   R1,#0
+	    INC   R2
+		CJNE  R2,#14H,HALC;没到20s继续闪烁
+		LJMP  CHAONE;达到20s切换模式
+HALC:	CPL   P0.0
+	    LJMP  ASSIG
+CHAHAL: MOV   R2,#00H;计次寄存器清零并改变模式标志
+		MOV   R0,#10H;
+		LCALL BEEP;响蜂鸣器
+		LJMP  HALF
+;******************************
+;   外部中断子程序，更改模式
+;******************************
+IN1:    LCALL BDELAY
+		LCALL BDELAY
+		LCALL BDELAY
+		CJNE  R0,#00H,NNOEI
+		MOV   R0,#01H
+		AJMP  REI
+NNOEI:  CJNE  R0,#01H,NFIVI
+		MOV   R0,#10H
+		AJMP  REI
+NFIVI:	MOV   R0,#00H
+REI:	MOV   R2,#00H
+		LCALL BEEP
+		CLR   IE1
+		RETI
+;******************************
+;        延时子程序
+;******************************
+BDELAY: MOV   R6,#3AH;
+DELAY2:	MOV   R7,#0FFH;
+DELAY1: NOP;
+        NOP;
+		DJNZ  R7,DELAY1;
+		DJNZ  R6,DELAY2;
+		RET
+		
+BEEP:	SETB  P3.1;蜂鸣器响
+		LCALL  BDELAY
+		CPL   P3.1
+
+; Peripheral specific initialization functions,
+; Called from the Init_Device label
+PCA_Init:
+    anl  PCA0MD,    #0BFh
+    mov  PCA0MD,    #000h
+    ret
+
+Timer_Init:
+    mov  TMOD,      #011h
+    mov  CKCON,     #002h
+    ret
+
+Port_IO_Init:
+    ; P0.0  -  Unassigned,  Open-Drain, Digital
+    ; P0.1  -  Unassigned,  Open-Drain, Digital
+    ; P0.2  -  Unassigned,  Open-Drain, Digital
+    ; P0.3  -  Unassigned,  Open-Drain, Digital
+    ; P0.4  -  Unassigned,  Open-Drain, Digital
+    ; P0.5  -  Unassigned,  Open-Drain, Digital
+    ; P0.6  -  Unassigned,  Open-Drain, Digital
+    ; P0.7  -  Unassigned,  Open-Drain, Digital
+
+    ; P1.0  -  Unassigned,  Open-Drain, Digital
+    ; P1.1  -  Unassigned,  Open-Drain, Digital
+    ; P1.2  -  Unassigned,  Open-Drain, Digital
+    ; P1.3  -  Unassigned,  Open-Drain, Digital
+    ; P1.4  -  Unassigned,  Open-Drain, Digital
+    ; P1.5  -  Unassigned,  Open-Drain, Digital
+    ; P1.6  -  Unassigned,  Open-Drain, Digital
+    ; P1.7  -  Unassigned,  Open-Drain, Digital
+    ; P2.0  -  Unassigned,  Open-Drain, Digital
+    ; P2.1  -  Unassigned,  Open-Drain, Digital
+    ; P2.2  -  Unassigned,  Open-Drain, Digital
+    ; P2.3  -  Unassigned,  Open-Drain, Digital
+
+    mov  XBR1,      #040h
+    ret
+
+Interrupts_Init:
+    mov  IT01CF,    #010h
+    mov  IE,        #086h
+    ret
+
+; Initialization function for device,
+; Call Init_Device from your main program
+Init_Device:
+    lcall PCA_Init
+    lcall Timer_Init
+    lcall Port_IO_Init
+    lcall Interrupts_Init
+    ret
+
+        END
